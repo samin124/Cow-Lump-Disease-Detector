@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cow Lumpy Skin Disease Detector</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <!-- Bootstrap 5 CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    /* Background Gradient */
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Poppins', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      color: #333;
+    }
+
+    /* Card style */
+    .card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
+      max-width: 480px;
+      width: 100%;
+      padding: 30px 25px;
+      text-align: center;
+    }
+
+    h1 {
+      color: #4a148c;
+      font-weight: 700;
+      margin-bottom: 25px;
+      font-size: 2rem;
+    }
+
+    /* File input styling */
+    input[type="file"] {
+      display: none;
+    }
+
+    label[for="imageInput"] {
+      display: inline-block;
+      background: #764ba2;
+      color: white;
+      padding: 12px 30px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.3s ease;
+      margin-bottom: 15px;
+    }
+
+    label[for="imageInput"]:hover {
+      background: #5e3a82;
+    }
+
+    /* Preview Image */
+    #preview {
+      margin: 20px auto 30px;
+      max-width: 100%;
+      max-height: 280px;
+      border-radius: 15px;
+      box-shadow: 0 6px 20px rgba(118, 75, 162, 0.4);
+      object-fit: contain;
+      display: none;
+      transition: opacity 0.4s ease;
+    }
+
+    /* Button */
+    button#submitBtn {
+      background: #4a148c;
+      border: none;
+      padding: 12px 40px;
+      font-size: 1rem;
+      border-radius: 50px;
+      font-weight: 600;
+      color: white;
+      width: 100%;
+      box-shadow: 0 6px 15px rgba(74, 20, 140, 0.5);
+      transition: background 0.3s ease;
+    }
+
+    button#submitBtn:disabled {
+      background: #b39ddb;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    button#submitBtn:hover:not(:disabled) {
+      background: #37006b;
+    }
+
+    /* Result Box */
+    #result {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-top: 15px;
+      min-height: 2.4em;
+      transition: opacity 0.6s ease;
+      opacity: 0;
+    }
+
+    #confidence {
+      font-size: 1.1rem;
+      margin-top: 6px;
+      color: #666;
+      transition: opacity 0.6s ease;
+      opacity: 0;
+    }
+
+    /* Color codes */
+    .lumpy {
+      color: #d32f2f; /* deep red */
+    }
+
+    .normal {
+      color: #388e3c; /* deep green */
+    }
+
+    /* Spinner */
+    .spinner-border {
+      margin-top: 20px;
+      width: 3rem;
+      height: 3rem;
+      color: #4a148c;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Cow Lumpy Skin Disease Detector</h1>
+
+    <form id="upload-form" enctype="multipart/form-data">
+      <input type="file" id="imageInput" name="image" accept="image/png, image/jpeg" required />
+      <label for="imageInput">Choose Image</label>
+
+      <img id="preview" alt="Image Preview" />
+
+      <button type="submit" id="submitBtn" disabled>Upload & Predict</button>
+    </form>
+
+    <div class="text-center">
+      <div class="spinner-border" role="status" id="loading-spinner">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div id="result"></div>
+    <div id="confidence"></div>
+  </div>
+
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultDiv = document.getElementById('result');
+    const confidenceDiv = document.getElementById('confidence');
+    const spinner = document.getElementById('loading-spinner');
+    const form = document.getElementById('upload-form');
+
+    // Enable button when image selected + show preview
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = e => {
+          preview.src = e.target.result;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+        submitBtn.disabled = false;
+
+        // Reset result area
+        resultDiv.style.opacity = 0;
+        confidenceDiv.style.opacity = 0;
+      } else {
+        preview.style.display = 'none';
+        submitBtn.disabled = true;
+      }
+    });
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      resultDiv.style.opacity = 0;
+      confidenceDiv.style.opacity = 0;
+      spinner.style.display = 'inline-block';
+      resultDiv.textContent = '';
+      confidenceDiv.textContent = '';
+
+      const formData = new FormData(form);
+      try {
+        const response = await fetch('/predict', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await response.json();
+        spinner.style.display = 'none';
+
+        if (response.ok) {
+          resultDiv.textContent = `Prediction: ${data.label}`;
+          confidenceDiv.textContent = `Confidence: ${(data.confidence * 100).toFixed(2)}%`;
+
+          if (data.label === 'Lumpy Skin') {
+            resultDiv.className = 'lumpy';
+          } else {
+            resultDiv.className = 'normal';
+          }
+
+          // Fade in result
+          setTimeout(() => {
+            resultDiv.style.opacity = 1;
+            confidenceDiv.style.opacity = 1;
+          }, 100);
+        } else {
+          resultDiv.textContent = `Error: ${data.error}`;
+          resultDiv.className = 'lumpy';
+          resultDiv.style.opacity = 1;
+        }
+      } catch (err) {
+        spinner.style.display = 'none';
+        resultDiv.textContent = 'Error: Could not reach server.';
+        resultDiv.className = 'lumpy';
+        resultDiv.style.opacity = 1;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
