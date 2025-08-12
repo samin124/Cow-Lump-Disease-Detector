@@ -1,6 +1,6 @@
-Flask>=2.0
-torch
+torch==2.8.0+cpu --find-links https://download.pytorch.org/whl/cpu
 torchvision
+Flask>=2.0
 Pillow
 efficientnet-pytorch
 gunicorn
